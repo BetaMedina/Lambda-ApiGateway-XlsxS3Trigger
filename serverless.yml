@@ -1,0 +1,62 @@
+service: serverless-s3
+
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  environment:
+    bucketName: ${self:custom.bucketName}
+    tableName: ${self:custom.tableName}
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - s3:*
+        - dynamodb:*
+      Resource: '*'
+# you can overwrite defaults here
+#  stage: dev
+#  region: us-east-1
+
+custom:
+  bucketName: bucket-teste-lambda-medina-24-10-20
+  tableName: tableUploaded
+
+plugins:  
+  - serverless-offline
+
+functions:
+  upload:
+    handler: lambda/endpoint/fileUploaded.main
+    events:
+      - http:
+          path: file
+          method: post
+          cors: true
+  s3Callback:
+    handler: lambda/triggers/s3XlsxTrigger.main
+    events:
+      - s3:
+          bucket: ${self:custom.bucketName}
+          event: s3:ObjectCreated:Put
+          rules:
+            - suffix: .xlsx
+          existing: true
+
+resources:
+  Resources:
+    myDynamoDbTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tableName}
+        AttributeDefinitions:
+          - AttributeName: ID
+            AttributeType: S
+        KeySchema:
+          - AttributeName: ID
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+    uploadedFileBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketName}
